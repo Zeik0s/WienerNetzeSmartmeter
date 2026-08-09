@@ -332,7 +332,7 @@ def bewegungsdaten(count=24, timestamp=None, interval='h'):
 
 def bewegungsdaten_response(customer_id: str, zp: str,
                             granularity: ValueType = ValueType.QUARTER_HOUR, anlagetype: AnlagenType = AnlagenType.CONSUMING,
-                            wrong_zp: bool = False, values_count: int = 10):
+                            wrong_zp: bool = False, values_count: int = 10, no_descriptor: bool = False):
     if granularity == ValueType.QUARTER_HOUR:
         gran = "QH"
         if anlagetype == AnlagenType.CONSUMING:
@@ -349,6 +349,11 @@ def bewegungsdaten_response(customer_id: str, zp: str,
         zp = zp + "9"
 
     values = [] if values_count == 0 else bewegungsdaten(count=values_count, timestamp=datetime(2022,8,7,0,0,0), interval=gran)
+
+    if no_descriptor:
+        # WienerNetze intermittently returns a body without a "descriptor"
+        # (e.g. when no movement data is available for the requested period yet).
+        return {"values": values}
 
     return {
         "descriptor": {
@@ -574,7 +579,7 @@ def expect_history(
 @pytest.mark.usefixtures("requests_mock")
 def expect_bewegungsdaten(requests_mock: Mocker, customer_id: str, zp: str, dateFrom: dt.datetime, dateTo: dt.datetime,
                           granularity:ValueType = ValueType.QUARTER_HOUR, anlagetype: AnlagenType = AnlagenType.CONSUMING,
-                          wrong_zp: bool = False, values_count=10):
+                          wrong_zp: bool = False, values_count=10, no_descriptor: bool = False, json_response=None):
     if anlagetype== AnlagenType.FEEDING:
         if granularity == ValueType.DAY: 
             rolle = RoleType.DAILY_FEEDING.value 
@@ -591,7 +596,8 @@ def expect_bewegungsdaten(requests_mock: Mocker, customer_id: str, zp: str, date
         "rolle": rolle,
         "zeitpunktVon": dateFrom.strftime("%Y-%m-%dT00:00:00.000Z"),
         "zeitpunktBis": dateTo.strftime("%Y-%m-%dT23:59:59.999Z"),
-        "aggregat": "NONE"
+        "aggregat": "NONE",
+        "wandler": "false"
     }
     url = parse.urljoin(API_URL_ALT, f'user/messwerte/bewegungsdaten?{urlencode(params)}')
     requests_mock.get(url,
@@ -599,4 +605,4 @@ def expect_bewegungsdaten(requests_mock: Mocker, customer_id: str, zp: str, date
                           "Authorization": f"Bearer {ACCESS_TOKEN}",
                           "Accept": "application/json"
                       },
-                      json=bewegungsdaten_response(customer_id, zp, granularity, anlagetype, wrong_zp, values_count))
+                      json=json_response if json_response is not None else bewegungsdaten_response(customer_id, zp, granularity, anlagetype, wrong_zp, values_count, no_descriptor))

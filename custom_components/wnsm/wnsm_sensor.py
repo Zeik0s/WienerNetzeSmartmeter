@@ -14,6 +14,7 @@ from homeassistant.util import slugify
 from .AsyncSmartmeter import AsyncSmartmeter
 from .api.client_factory import make_client
 from .api.constants import ValueType
+from .api.errors import SmartmeterError
 from .importer import Importer
 from .utils import before, today
 
@@ -105,7 +106,7 @@ class WNSMSensor(SensorEntity):
             self._available = False
             _LOGGER.warning(
                 "Error retrieving data from smart meter api - Timeout: %s" % e)
-        except RuntimeError as e:
+        except (RuntimeError, SmartmeterError) as e:
             self._available = False
             _LOGGER.exception(
                 "Error retrieving data from smart meter api - Error: %s" % e)
